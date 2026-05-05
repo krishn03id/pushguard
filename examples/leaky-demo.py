@@ -1,0 +1,2 @@
+BOT_TOKEN = "123456789:ABCdefGHIjklMNOpqrSTUvwxYZ_1234567890"
+print("demo")

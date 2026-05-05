@@ -1,0 +1,50 @@
+{
+  "name": "@namaa03/pushguard",
+  "version": "0.6.3",
+  "description": "One-time install git push protection with 1000+ provider fingerprints and entropy scanning for leaked tokens.",
+  "license": "MIT",
+  "type": "commonjs",
+  "bin": {
+    "pushguard": "./bin/pushguard.js",
+    "pushgaurd": "./bin/pushguard.js",
+    "git-airbag": "./bin/pushguard.js"
+  },
+  "scripts": {
+    "test": "node test/scanner.test.js && node test/fixer.test.js",
+    "scan": "node bin/pushguard.js scan . --paranoid",
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "keywords": [
+    "ai-coding",
+    "api-key",
+    "entropy",
+    "env",
+    "git",
+    "github",
+    "pre-commit",
+    "pre-push",
+    "scanner",
+    "secrets",
+    "security",
+    "token",
+    "prepush",
+    "git-hooks",
+    "supply-chain",
+    "ai-safety",
+    "provider-detection",
+    "pre-push-hook",
+    "git-push-protection",
+    "api-token-scanner"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
+  "files": [
+    "bin",
+    "src",
+    "scripts",
+    "templates",
+    "README.md",
+    "LICENSE"
+  ]
+}
