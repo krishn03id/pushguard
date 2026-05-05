@@ -5,6 +5,7 @@ const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { gitRoot } = require('./utils');
+const { name: PACKAGE_NAME } = require('../package.json');
 
 const MARKER_START = '# >>> pushguard >>>';
 const MARKER_END = '# <<< pushguard <<<';
@@ -22,10 +23,10 @@ if command -v pushguard >/dev/null 2>&1; then
   ${scanCmd}
   status=$?
 elif command -v npx >/dev/null 2>&1; then
-  npx --yes pushguard ${npxCmd}
+  npx --yes ${PACKAGE_NAME} ${npxCmd}
   status=$?
 else
-  echo "pushguard: command not found. Install with: npm i -g pushguard"
+  echo "pushguard: command not found. Install with: npm i -g ${PACKAGE_NAME}"
   status=1
 fi
 
@@ -52,10 +53,10 @@ run_git_pushguard() {
     printf '%s\n' "$git_pushguard_push_input" | pushguard "$@"
     return $?
   elif command -v npx >/dev/null 2>&1; then
-    printf '%s\n' "$git_pushguard_push_input" | npx --yes pushguard "$@"
+    printf '%s\n' "$git_pushguard_push_input" | npx --yes ${PACKAGE_NAME} "$@"
     return $?
   else
-    echo "pushguard: command not found. Install with: npm i -g pushguard"
+    echo "pushguard: command not found. Install with: npm i -g ${PACKAGE_NAME}"
     return 1
   fi
 }
@@ -150,7 +151,7 @@ function removeMarkedBlock(hookPath) {
   if (!fs.existsSync(hookPath)) return false;
   const existing = fs.readFileSync(hookPath, 'utf8');
   if (!existing.includes(MARKER_START)) return false;
-  const re = new RegExp(`\n?${escapeRegExp(MARKER_START)}[\s\S]*?${escapeRegExp(MARKER_END)}\n?`, 'g');
+  const re = new RegExp(`\n?${escapeRegExp(MARKER_START)}[\\s\\S]*?${escapeRegExp(MARKER_END)}\n?`, 'g');
   const next = existing.replace(re, '\n').replace(/\n{3,}/g, '\n\n');
   fs.writeFileSync(hookPath, next, { mode: 0o755 });
   return true;

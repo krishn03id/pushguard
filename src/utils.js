@@ -16,6 +16,16 @@ const SKIP_FILE_NAMES = new Set([
   'Gemfile.lock', 'composer.lock'
 ]);
 
+function execFileSyncAllowingCapturedOutput(command, args, options) {
+  try {
+    return execFileSync(command, args, options);
+  } catch (err) {
+    const captured = err && err.stdout !== undefined ? err.stdout : err && err.output ? err.output[1] : undefined;
+    if (err && err.status === 0 && captured !== undefined) return captured;
+    throw err;
+  }
+}
+
 function parseSize(value, fallback = 5 * 1024 * 1024) {
   if (value === undefined || value === null || value === '') return fallback;
   const s = String(value).trim().toLowerCase();
@@ -83,7 +93,7 @@ function walk(dir, out = [], options = {}) {
 
 function gitRoot(cwd = process.cwd()) {
   try {
-    return execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    return gitOutput(['rev-parse', '--show-toplevel'], cwd);
   } catch (_) {
     return null;
   }
@@ -92,7 +102,7 @@ function gitRoot(cwd = process.cwd()) {
 function getTrackedFiles(cwd = process.cwd(), options = {}) {
   try {
     const root = gitRoot(cwd) || cwd;
-    const output = execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8' });
+    const output = gitOutput(['ls-files'], root);
     return output
       .split(/\r?\n/)
       .filter(Boolean)
@@ -106,7 +116,7 @@ function getTrackedFiles(cwd = process.cwd(), options = {}) {
 function getStagedFiles(cwd = process.cwd(), options = {}) {
   try {
     const root = gitRoot(cwd) || cwd;
-    const output = execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACMR'], { cwd: root, encoding: 'utf8' });
+    const output = gitOutput(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], root);
     return output
       .split(/\r?\n/)
       .filter(Boolean)
@@ -164,12 +174,13 @@ function isZeroSha(sha) {
 }
 
 function gitOutput(args, cwd = process.cwd(), options = {}) {
-  return execFileSync('git', args, {
+  const output = execFileSyncAllowingCapturedOutput('git', args, {
     cwd,
     encoding: options.encoding || 'utf8',
     stdio: ['ignore', 'pipe', 'ignore'],
     maxBuffer: options.maxBuffer || 20 * 1024 * 1024
-  }).trim();
+  });
+  return Buffer.isBuffer(output) ? output.toString(options.encoding || 'utf8').trim() : String(output).trim();
 }
 
 function emptyTreeSha(cwd = process.cwd()) {
@@ -272,7 +283,7 @@ function readGitBlobText(spec, options = {}) {
     const sizeRaw = gitOutput(['cat-file', '-s', objectRef], spec.root);
     const size = Number(sizeRaw);
     if (!Number.isFinite(size) || size > maxSizeBytes) return null;
-    const buf = execFileSync('git', ['show', objectRef], {
+    const buf = execFileSyncAllowingCapturedOutput('git', ['show', objectRef], {
       cwd: spec.root,
       encoding: 'buffer',
       stdio: ['ignore', 'pipe', 'ignore'],
@@ -300,6 +311,7 @@ module.exports = {
   ensureFileLine,
   uniqueEnvName,
   parseDotEnvKeys,
+  execFileSyncAllowingCapturedOutput,
   isZeroSha,
   parsePrePushInput,
   getPrePushSpecs,

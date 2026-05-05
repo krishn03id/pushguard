@@ -10,7 +10,9 @@ const { RULES } = require('../src/rules');
 const { providerStats } = require('../src/providers');
 const { parseSize } = require('../src/utils');
 
-const VERSION = require('../package.json').version;
+const pkg = require('../package.json');
+const VERSION = pkg.version;
+const PACKAGE_NAME = pkg.name;
 
 function parseArgs(argv) {
   const args = [];
@@ -35,7 +37,7 @@ function parseArgs(argv) {
 function printHelp() {
   console.log(`PushGuard v${VERSION}
 
-One-time install protection for git push: after npm install -g pushguard, every normal git push scans outgoing commits for leaked tokens before they reach GitHub.
+One-time install protection for git push: after npm install -g ${PACKAGE_NAME}, every normal git push scans outgoing commits for leaked tokens before they reach GitHub.
 
 Usage:
   pushguard scan [path] [--staged|--tracked|--pre-push] [--json] [--paranoid] [--max-size 5mb]
@@ -48,7 +50,7 @@ Usage:
 
 Examples:
   pushguard scan .
-  npm install -g pushguard       # installs global pre-push protection automatically
+  npm install -g ${PACKAGE_NAME}       # installs global pre-push protection automatically
   pushguard install              # re-install/repair global protection
   pushguard status
   pushguard install --local      # current repo only

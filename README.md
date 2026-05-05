@@ -52,7 +52,7 @@ AI coding is fast. Leaking secrets is faster.
 When beginners and vibe coders build with ChatGPT, Cursor, Claude, Codex, Gemini CLI, or copied snippets from the internet, it is very easy to accidentally commit something like:
 
 ```js
-const token = "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi";
+const token = "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi"; // pushguard: allow docs example
 ```
 
 Then one normal command sends it public:
@@ -279,7 +279,7 @@ PushGuard can auto-fix simple hardcoded tokens in Python, JavaScript, and TypeSc
 Example unsafe code:
 
 ```js
-const token = "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi";
+const token = "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi"; // pushguard: allow docs example
 ```
 
 Safer code:
@@ -384,8 +384,8 @@ Never commit real secrets.
 Use local `.env`:
 
 ```env
-TELEGRAM_BOT_TOKEN=123456789:real_secret_here
-OPENAI_API_KEY=sk-real_secret_here
+TELEGRAM_BOT_TOKEN=123456789:real_secret_here # pushguard: allow docs example
+OPENAI_API_KEY=sk-real_secret_here # pushguard: allow docs example
 ```
 
 Commit safe `.env.example`:

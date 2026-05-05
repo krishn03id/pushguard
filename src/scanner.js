@@ -6,7 +6,7 @@ const { RULES, ENV_FILE_NAMES, SECRET_KEYWORD_RE } = require('./rules');
 const { findProvider } = require('./providers');
 const { walk, safeRead, lineNumberAt, redact, getStagedFiles, getTrackedFiles, gitRoot, getPushedFileSpecs, readGitBlobText } = require('./utils');
 
-const PLACEHOLDER_RE = /(?:your_|example|placeholder|change[_-]?me|xxxxx|dummy|sample|test[_-]?key|not[_-]?real|todo|insert[_-]?here|replace[_-]?me|changeme|fake|mock)/i;
+const PLACEHOLDER_RE = /(?:your_|example|placeholder|change[_-]?me|xxxxx|dummy|sample|test[_-]?key|not[_-]?real|real[_-]?secret|secret[_-]?here|todo|insert[_-]?here|replace[_-]?me|changeme|fake|mock)/i;
 const ALLOW_RE = /pushguard:\s*allow/i;
 const ENV_REF_RE = /(?:process\.env\.|os\.getenv\(|getenv\(|env\(|Deno\.env|get_config\(|settings\.)/i;
 const SAFE_WORD_RE = /^(?:true|false|null|none|undefined|admin|root|password|secret|token|localhost|127\.0\.0\.1)$/i;
@@ -83,14 +83,17 @@ function providerSecretScore(value, key = '') {
   if (!v || v.length < 8 || v.length > 4096) return false;
   if (PLACEHOLDER_RE.test(v) || ENV_REF_RE.test(v) || SAFE_WORD_RE.test(v)) return false;
   if (looksLikeKnownSecretShape(v) || looksLikeCredentialUrl(v)) return true;
+  if (/^[A-Z][A-Z0-9_]{7,}$/.test(v)) return false;
+  if (/^[a-z]+(?:-[a-z0-9]+){2,}$/.test(v)) return false;
 
   const entropy = shannonEntropy(v);
   const diversity = charClassScore(v);
   const strongSecretContext = /(?:api[_-]?key|apikey|api[_-]?token|access[_-]?token|secret|client[_-]?secret|app[_-]?secret|webhook|private[_-]?key|service[_-]?role|service[_-]?key|bearer|refresh[_-]?token|password|passwd|pwd|dsn|connection[_-]?string)/i.test(key);
+  const tokenish = /^[A-Za-z0-9_\-+.=/]{12,}$/.test(v);
 
-  if (strongSecretContext && v.length >= 12 && entropy >= 2.7 && diversity >= 2) return true;
-  if (v.length >= 20 && entropy >= 3.25 && diversity >= 2) return true;
-  if (v.length >= 32 && entropy >= 3.0) return true;
+  if (strongSecretContext && tokenish && v.length >= 12 && entropy >= 2.7 && diversity >= 2) return true;
+  if (tokenish && v.length >= 20 && entropy >= 3.25 && diversity >= 2) return true;
+  if (tokenish && v.length >= 32 && entropy >= 3.0) return true;
   if (/^[A-Za-z0-9_\-+/=]{24,}$/.test(v) && entropy >= 3.1) return true;
   return false;
 }
@@ -117,6 +120,10 @@ function isLikelySecretValue(value, key = '') {
   if (v.length > 4096) return false;
   if (ENV_REF_RE.test(v)) return false;
   if (/^(?:https?:\/\/)?(?:localhost|127\.0\.0\.1)(?::\d+)?\/?$/i.test(v)) return false;
+  if (v.startsWith('/')) return false;
+  if (/[()]/.test(v)) return false;
+  if (/^[A-Z][A-Z0-9_]{7,}$/.test(v)) return false;
+  if (/^[a-z]+(?:-[a-z0-9]+){2,}$/.test(v)) return false;
 
   if (looksLikeKnownSecretShape(v) || looksLikeCredentialUrl(v)) return true;
 
@@ -279,9 +286,9 @@ function scanProviderAssignments(filePath, lines, findings, seen) {
       const provider = findProvider(`${c.key} ${line}`);
       if (!provider) continue;
       const value = cleanSecretValue(c.value);
-      if (!providerSecretScore(value, `${c.key} ${line}`)) continue;
+      if (!providerSecretScore(value, c.key)) continue;
 
-      const secretContext = SECRET_KEYWORD_RE.test(`${c.key} ${line}`);
+      const secretContext = SECRET_KEYWORD_RE.test(c.key);
       addFinding(findings, seen, {
         ruleId: 'provider-secret-assignment',
         title: `${providerTitle(provider)} credential-like value`,

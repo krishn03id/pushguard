@@ -308,7 +308,7 @@ const RULES = [
   }
 ];
 
-const SECRET_KEYWORD_RE = /(?:api[_-]?key|apikey|access[_-]?key|secret|token|auth|authorization|bearer|credential|password|passwd|pwd|private[_-]?key|client[_-]?secret|signing[_-]?secret|webhook|session[_-]?secret|jwt|refresh[_-]?token|database[_-]?url|db[_-]?url|connection[_-]?string|dsn|service[_-]?role|service[_-]?key|app[_-]?secret|publishable[_-]?key|anon[_-]?key|pat|personal[_-]?access[_-]?token|oauth|consumer[_-]?secret|signing[_-]?key)/i;
+const SECRET_KEYWORD_RE = /(?:api[_-]?key|apikey|access[_-]?key|secret|token|auth|authorization|bearer|credential|password|passwd|pwd|private[_-]?key|client[_-]?secret|signing[_-]?secret|webhook|session[_-]?secret|jwt|refresh[_-]?token|database[_-]?url|db[_-]?url|connection[_-]?string|dsn|service[_-]?role|service[_-]?key|app[_-]?secret|publishable[_-]?key|anon[_-]?key|personal[_-]?access[_-]?token|oauth|consumer[_-]?secret|signing[_-]?key)/i;
 const ENV_FILE_NAMES = new Set(['.env', '.env.local', '.env.production', '.env.development', '.env.test', '.env.staging']);
 
 module.exports = { RULES, ENV_FILE_NAMES, SECRET_KEYWORD_RE };

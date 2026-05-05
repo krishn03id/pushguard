@@ -10,7 +10,7 @@
     "git-airbag": "./bin/pushguard.js"
   },
   "scripts": {
-    "test": "node test/scanner.test.js && node test/fixer.test.js",
+    "test": "node test/scanner.test.js && node test/fixer.test.js && node test/hooks.test.js",
     "scan": "node bin/pushguard.js scan . --paranoid",
     "postinstall": "node scripts/postinstall.js"
   },

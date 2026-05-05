@@ -354,6 +354,17 @@ function tokens(s) {
   return new Set(String(s || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
 }
 
+function escapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function aliasPhraseMatches(rawAlias, context) {
+  const parts = String(rawAlias || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  if (parts.length < 2) return false;
+  const re = new RegExp(`(^|[^a-z0-9])${parts.map(escapeRegExp).join('[^a-z0-9]+')}([^a-z0-9]|$)`, 'i');
+  return re.test(String(context || ''));
+}
+
 const PROVIDER_FINGERPRINTS = [];
 const seen = new Set();
 for (const provider of PROVIDERS) {
@@ -388,13 +399,8 @@ function findProvider(context) {
     // Suffixed fingerprints are high precision, e.g. CLOUDFLARE_API_TOKEN.
     if (fp.withSuffix && compact.includes(fp.norm)) return fp.provider;
 
-    // Short aliases must be exact tokens to avoid matches inside normal words.
-    if (fp.norm.length < 5) {
-      if (tokenSet.has(fp.norm)) fallback = fallback || fp.provider;
-      continue;
-    }
-
-    if (compact.includes(fp.norm)) fallback = fallback || fp.provider;
+    // Bare provider aliases must not match across unrelated words.
+    if (tokenSet.has(fp.norm) || aliasPhraseMatches(fp.raw, original)) fallback = fallback || fp.provider;
   }
   return fallback;
 }
