@@ -5,7 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { hookBody, installLocal, uninstallLocal, MARKER_START } = require('../src/hooks');
+const { hookBody, passThroughHookBody, installLocal, uninstallLocal, MARKER_START } = require('../src/hooks');
 
 const packageName = require('../package.json').name;
 
@@ -18,6 +18,11 @@ const preCommit = hookBody({ hookName: 'pre-commit', paranoid: true });
 assert(preCommit.includes(`npx --yes ${packageName}`), 'pre-commit hook should use the scoped npm package fallback');
 assert(!preCommit.includes('npx --yes pushguard'), 'pre-commit hook should not fall back to the unscoped package name');
 assert(preCommit.includes(`npm i -g ${packageName}`), 'pre-commit hook should show the scoped install command');
+assert(preCommit.includes('$repo_git_dir/hooks/pre-commit'), 'pre-commit hook should chain repo-local pre-commit hooks');
+
+const commitMsg = passThroughHookBody('commit-msg');
+assert(commitMsg.includes('$repo_git_dir/hooks/commit-msg'), 'pass-through hooks should chain matching repo-local hooks');
+assert(commitMsg.includes('git_pushguard_hook_input=$(cat)'), 'pass-through hooks should preserve stdin for hooks that use it');
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pushguard-hooks-'));
 const oldCwd = process.cwd();

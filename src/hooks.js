@@ -9,6 +9,49 @@ const { name: PACKAGE_NAME } = require('../package.json');
 
 const MARKER_START = '# >>> pushguard >>>';
 const MARKER_END = '# <<< pushguard <<<';
+const CHAIN_HOOKS = [
+  'applypatch-msg',
+  'pre-applypatch',
+  'post-applypatch',
+  'pre-commit',
+  'pre-merge-commit',
+  'prepare-commit-msg',
+  'commit-msg',
+  'post-commit',
+  'pre-rebase',
+  'post-checkout',
+  'post-merge',
+  'pre-auto-gc',
+  'post-rewrite',
+  'sendemail-validate'
+];
+
+function localHookChainBody(hookName, inputVar = '') {
+  const inputPrefix = inputVar ? `if [ -n "$${inputVar}" ]; then
+      printf '%s\\n' "$${inputVar}" | "$repo_git_dir/hooks/${hookName}" "$@"
+    else
+      "$repo_git_dir/hooks/${hookName}" "$@"
+    fi` : `"$repo_git_dir/hooks/${hookName}" "$@"`;
+  return `repo_git_dir=$(git rev-parse --git-dir 2>/dev/null || true)
+if [ -n "$repo_git_dir" ] && [ -x "$repo_git_dir/hooks/${hookName}" ]; then
+  if ! grep -q "${MARKER_START}" "$repo_git_dir/hooks/${hookName}" 2>/dev/null; then
+    ${inputPrefix}
+    local_hook_status=$?
+    if [ "$local_hook_status" -ne 0 ]; then
+      exit "$local_hook_status"
+    fi
+  fi
+fi`;
+}
+
+function passThroughHookBody(hookName) {
+  return `${MARKER_START}
+# PushGuard: keep repo-local ${hookName} hooks working while global core.hooksPath is active.
+git_pushguard_hook_input=$(cat)
+
+${localHookChainBody(hookName, 'git_pushguard_hook_input')}
+${MARKER_END}`;
+}
 
 function hookBody({ autoFix = false, hookName = 'pre-push', paranoid = false } = {}) {
   const paranoidFlag = paranoid ? ' --paranoid' : '';
@@ -35,6 +78,10 @@ if [ "$status" -ne 0 ]; then
   echo "🛑 pushguard blocked this commit. Fix the issue, git add changes, then retry."
   exit "$status"
 fi
+
+# If global hooksPath is active, Git skips .git/hooks/pre-commit.
+# Chain an existing repo-local pre-commit hook when it exists and is not PushGuard-managed.
+${localHookChainBody('pre-commit')}
 ${MARKER_END}`;
   }
 
@@ -81,16 +128,7 @@ fi
 
 # If global hooksPath is active, Git skips .git/hooks/pre-push.
 # Chain an existing repo-local pre-push hook when it exists and is not PushGuard-managed.
-repo_git_dir=$(git rev-parse --git-dir 2>/dev/null || true)
-if [ -n "$repo_git_dir" ] && [ -x "$repo_git_dir/hooks/pre-push" ]; then
-  if ! grep -q "${MARKER_START}" "$repo_git_dir/hooks/pre-push" 2>/dev/null; then
-    printf '%s\n' "$git_pushguard_push_input" | "$repo_git_dir/hooks/pre-push" "$@"
-    local_hook_status=$?
-    if [ "$local_hook_status" -ne 0 ]; then
-      exit "$local_hook_status"
-    fi
-  fi
-fi
+${localHookChainBody('pre-push', 'git_pushguard_push_input')}
 ${MARKER_END}`;
 }
 
@@ -136,12 +174,19 @@ function installLocal(options = {}) {
 function installGlobal(options = {}) {
   const hooksPath = path.join(os.homedir(), '.pushguard', 'hooks');
   const hookNames = hookNamesFor(options);
+  const managedHookNames = new Set(hookNames);
   fs.mkdirSync(hooksPath, { recursive: true });
   const installed = [];
   for (const hookName of hookNames) {
     const hookPath = path.join(hooksPath, hookName);
     ensureHookFile(hookPath, hookBody({ autoFix: options.autoFix, hookName, paranoid: options.paranoid }));
     installed.push({ hookName, hookPath });
+  }
+  for (const hookName of CHAIN_HOOKS) {
+    if (managedHookNames.has(hookName)) continue;
+    const hookPath = path.join(hooksPath, hookName);
+    ensureHookFile(hookPath, passThroughHookBody(hookName));
+    installed.push({ hookName, hookPath, passThrough: true });
   }
   execFileSync('git', ['config', '--global', 'core.hooksPath', hooksPath], { stdio: 'ignore' });
   return { scope: 'global', hooksPath, hookName: hookNames.join(', '), hookPath: installed.map(x => x.hookPath).join(', '), installed };
@@ -153,6 +198,10 @@ function removeMarkedBlock(hookPath) {
   if (!existing.includes(MARKER_START)) return false;
   const re = new RegExp(`\n?${escapeRegExp(MARKER_START)}[\\s\\S]*?${escapeRegExp(MARKER_END)}\n?`, 'g');
   const next = existing.replace(re, '\n').replace(/\n{3,}/g, '\n\n');
+  if (!next.replace(/^#![^\n]*\n?/, '').trim()) {
+    try { fs.unlinkSync(hookPath); } catch (_) {}
+    return true;
+  }
   fs.writeFileSync(hookPath, next, { mode: 0o755 });
   return true;
 }
@@ -202,7 +251,7 @@ function statusGlobal() {
 function uninstallGlobal() {
   const hooksPath = globalHooksPath();
   const removed = [];
-  for (const hookName of ['pre-push', 'pre-commit']) {
+  for (const hookName of ['pre-push', 'pre-commit', ...CHAIN_HOOKS]) {
     const hookPath = path.join(hooksPath, hookName);
     if (removeMarkedBlock(hookPath)) removed.push(hookName);
   }
@@ -224,6 +273,7 @@ module.exports = {
   uninstallGlobal,
   statusGlobal,
   hookBody,
+  passThroughHookBody,
   MARKER_START,
   MARKER_END
 };
